@@ -11,9 +11,10 @@ public class Logger {
 
     private static Logger logger;
     private static String logFileName;
+    private static final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy.MM.dd HH:mm:ss:SSS");
 
     private Logger() {
-        logFileName = Settings.getInstance().getLOG();
+        logFileName = Settings.getInstance().getLog();
     }
 
     public static Logger getInstance() {
@@ -22,12 +23,23 @@ public class Logger {
     }
 
     public void log(String msg) {
-        String date = new SimpleDateFormat("yyyy.MM.dd HH:mm:ss:SSS").format(new Date());
+        String date = simpleDateFormat.format(new Date());
         try (FileWriter fw = new FileWriter(logFileName, true)) {
-            fw.write(date + ": " + msg + "\n");
+            fw.write(date + " INFO: " + msg + "\n");
             fw.flush();
         } catch (IOException e) {
             System.out.println(e.getMessage());
         }
     }
+
+    public void error(String msg) {
+        String date = simpleDateFormat.format(new Date());
+        try (FileWriter fw = new FileWriter(logFileName, true)) {
+            fw.write(date + " ERROR: " + msg + "\n");
+            fw.flush();
+        } catch (IOException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
 }

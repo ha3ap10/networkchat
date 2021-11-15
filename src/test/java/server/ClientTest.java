@@ -21,7 +21,7 @@ public class ClientTest {
 
         Settings settings = Settings.getInstance();
 
-        int port = Integer.parseInt(settings.getPORT());
+        int port = settings.getPort();
 
         try {
             ServerSocket serverSocket = new ServerSocket(port);

@@ -17,28 +17,34 @@ public class Server {
     private final Logger logger = Logger.getInstance();
     private final Settings settings = Settings.getInstance();
 
-    private final int port = Integer.parseInt(settings.getPORT());
+    private final int port = settings.getPort();
 
     private final UsersList usersList = new UsersList();
 
     private ExecutorService executorService;
-    private ServerSocket serverSocket;
+    private Thread serverThread;
 
     public void startServer() {
-        String curThread = Thread.currentThread().getName() + "-startServer()";
+        serverThread = Thread.currentThread();
+        String curThread = serverThread.getName() + "-startServer()";
 
         executorService = Executors.newCachedThreadPool();
         logger.log(curThread, "ExecutorService create");
 
-        try {
-            serverSocket = new ServerSocket(port);
-
-            while (true) {
-                Socket clientSocket = serverSocket.accept();
-                executorService.execute(() -> newUserThread(clientSocket));
+        try (ServerSocket serverSocket = new ServerSocket(port)) {
+            serverSocket.setSoTimeout(2000);
+            while (!serverThread.isInterrupted()) {
+                try {
+                    Socket clientSocket = serverSocket.accept();
+                    executorService.execute(() -> newUserThread(clientSocket));
+                } catch (IOException e) {
+                    if (!e.getMessage().equals(TIME_OUT.get())) {
+                        logger.error(curThread, e.getMessage());
+                    }
+                }
             }
         } catch (IOException e) {
-            logger.log(curThread, e.getMessage());
+            logger.error(curThread, e.getMessage());
         }
     }
 
@@ -49,7 +55,7 @@ public class Server {
         try (PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
              BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()))) {
 
-            logger.log(curThread, "New connection accepted " + clientSocket.getInetAddress());
+            logger.log(curThread, CONNECT.get() + clientSocket.getInetAddress());
 
             String msg;
             while ((msg = in.readLine()) != null) {
@@ -74,12 +80,12 @@ public class Server {
                 }
             }
         } catch (IOException e) {
-            logger.log(curThread, e.getMessage());
+            logger.error(curThread, e.getMessage());
         } finally {
             if (user != null) {
                 userOffline(user);
             }
-            logger.log(curThread," Disconnected: " + clientSocket.getInetAddress());
+            logger.log(curThread,DISCONNECT.get() + clientSocket.getInetAddress());
         }
     }
 
@@ -89,24 +95,21 @@ public class Server {
         for (User receiver : usersList.getUsers()) {
             user.sendMessage(i++ + ". " + receiver.getUserName());
         }
-        logger.log(curThread, "send contact list to " + user.getUserName());
+        logger.log(curThread, SEND_CONTACT_LIST.get() + user.getUserName());
     }
 
     public void stopServer() {
         String curThread = Thread.currentThread().getName() + "-stopServer()";
-
+        sendToAllUsers(SERVER_SHUTDOWN.get());
         executorService.shutdown();
-        try {
-            serverSocket.close();
-        } catch (IOException e) {
-            logger.log(curThread, e.getMessage());
-        }
+        serverThread.interrupt();
+        logger.log(curThread, STOP_MSG.get());
     }
 
     private void userOffline(User user) {
         String curThread = Thread.currentThread().getName() + "-userOffline()";
 
-        String msg = user.getUserName() + " is offline";
+        String msg = user.getUserName() + IS_OFF.get();
         usersList.removeUser(user);
         logger.log(curThread, msg);
         sendToAllUsers(msg);
@@ -117,7 +120,7 @@ public class Server {
 
         for (User receiver : usersList.getUsers()) {
             receiver.sendMessage(message);
-            logger.log(curThread, message);
+            logger.log(curThread, SEND.get() + message);
         }
     }
 
@@ -125,7 +128,7 @@ public class Server {
         String curThread = Thread.currentThread().getName() + "-addUser()";
 
         if (usersList.addUser(user)) {
-            String newUser = user.getUserName() + " is online";
+            String newUser = user.getUserName() + IS_ON.get();
             logger.log(curThread, newUser);
             user.sendMessage(CONFIRM.get() + user.getUserName());
             sendToAllUsers(newUser);
@@ -143,6 +146,6 @@ public class Server {
         while (usersList.getUser(user)) {
             user.setUserName(user.getUserName() + i++);
         }
-        logger.log(curThread, "User Name is " + user.getUserName());
+        logger.log(curThread, CONFIRM_REG.get() + user.getUserName());
     }
 }

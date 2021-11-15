@@ -2,7 +2,7 @@ package server;
 
 import java.util.Scanner;
 
-import static settings.Constants.STOP_SERVER;
+import static settings.Constants.SERVER_STOP;
 
 public class Main {
 
@@ -11,7 +11,7 @@ public class Main {
 
     public static void main(String[] args) {
 
-        System.out.println("\"" + STOP_SERVER.get() + "\" - to stop server");
+        System.out.println("\"" + SERVER_STOP.get() + "\" - to stop server");
         server = new Server();
 
         Thread serverThread = new Thread(() -> {
@@ -24,7 +24,7 @@ public class Main {
 
             String command = scanner.nextLine();
 
-            if (STOP_SERVER.get().equals(command)) {
+            if (SERVER_STOP.get().equals(command)) {
                 server.stopServer();
                 break;
             }

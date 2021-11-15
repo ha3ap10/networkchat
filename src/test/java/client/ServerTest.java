@@ -26,10 +26,10 @@ public class ServerTest {
 
         Settings settings = Settings.getInstance();
 
-        String host = settings.getHOST();
-        String port = settings.getPORT();
+        String host = settings.getHost();
+        int port = settings.getPort();
 
-        try (Socket socket = new Socket(host, Integer.parseInt(port));
+        try (Socket socket = new Socket(host, port);
              PrintWriter out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true);
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 

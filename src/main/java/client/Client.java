@@ -16,12 +16,9 @@ public class Client {
             EXIT.get() + " - покинуть чат\n";
     private final Logger logger = Logger.getInstance();
     private final Settings settings = Settings.getInstance();
-    private final int port = Integer.parseInt(settings.getPORT());
-    private final String host = settings.getHOST();
-
-    private PrintWriter out;
-    private BufferedReader in;
-    private Socket clientSocket;
+    private final int port = settings.getPort();
+    private final String host = settings.getHost();
+    private Thread clientThread;
 
     private String userName;
 
@@ -29,51 +26,56 @@ public class Client {
     Scanner scanner = new Scanner(System.in);
 
     public void startClient() {
-        try {
-            clientSocket = new Socket(host, port);
-            out = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream()), true);
-            in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+        clientThread = Thread.currentThread();
+        try (Socket clientSocket = new Socket(host, port);
+             PrintWriter out = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream()), true);
+             BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()))) {
 
-            System.out.println("\nВведите имя:");
+            System.out.println(CLIENT_ENTER_NAME.get());
             String name = scanner.nextLine();
             if (name.equals(EXIT.get())) {
                 stopClient();
                 return;
             } else {
-                clientNameSet(NEW_USER.get(), name);
+                clientNameSet(out, NEW_USER.get(), name);
             }
 
             String msg;
 
-            System.out.println(CLIENT_COMMANDS);
-            executorService.execute(this::receive);
+            executorService.execute(() -> receive(out, in));
 
-            while (true) {
+            while (!clientThread.isInterrupted()) {
                 msg = scanner.nextLine();
 
-                sendToServer(msg);
+                sendToServer(out, msg);
                 if (EXIT.get().equals(msg)) {
                     stopClient();
                     break;
                 }
             }
         } catch (IOException e) {
-            logger.log(e.getMessage());
+            logger.error(e.getMessage());
         }
     }
 
-    private void receive() {
+    private void receive(PrintWriter out, BufferedReader in) {
         String message;
-        while ((message = readFromServer()) != null) {
+        while ((message = readFromServer(in)) != null && !Thread.currentThread().isInterrupted()) {
 
             if (message.startsWith(FAIL_ADD_USER.get())) {
-                System.out.println("Не удалось зарегистрировать пользователя, введите другое имя: ");
-                logger.log("Не удалось зарегистрировать пользователя");
-                clientNameSet(NEW_USER.get(), scanner.nextLine());
+                System.out.println(CLIENT_FAIL_ADD_USER.get());
+                logger.log(CLIENT_FAIL_ADD_USER.get());
+                clientNameSet(out, NEW_USER.get(), scanner.nextLine());
             } else if (message.startsWith(CONFIRM.get())) {
                 userName = message.replaceAll(CONFIRM.get(), "");
-                System.out.println("Вы зарегистрированы как " + userName);
-                logger.log("Успешная регистрация: " + userName);
+                System.out.println(CONFIRM_REG.get() + userName);
+                System.out.println(CLIENT_COMMANDS);
+                logger.log(CONFIRM_REG.get() + userName);
+            } else if (message.startsWith(SERVER_SHUTDOWN.get())) {
+                System.out.println(SERVER_SHUTDOWN_MSG.get());
+                stopClient();
+                sendToServer(out, EXIT.get());
+                break;
             } else if(!message.startsWith(userName + ":")) {
                 System.out.println(message);
             }
@@ -81,35 +83,31 @@ public class Client {
     }
 
     public void stopClient() {
-        try {
-            executorService.shutdown();
-            out.close();
-            in.close();
-            clientSocket.close();
-            logger.log("Stop client");
-        } catch (IOException e) {
-            logger.log(e.getMessage());
+        executorService.shutdown();
+        logger.log(STOP_MSG.get());
+        clientThread.interrupt();
+    }
+
+    private void clientNameSet(PrintWriter out, String modifier, String name) {
+        sendToServer(out, modifier + name);
+    }
+
+    private void sendToServer(PrintWriter out, String output) {
+        if (!output.equals("")) {
+            out.println(output);
+            logger.log(SEND.get() + output);
         }
     }
 
-    private void clientNameSet(String modifier, String name) {
-        sendToServer(modifier + name);
-    }
-
-    private void sendToServer(String output) {
-        out.println(output);
-        logger.log("Send to server: " + output);
-    }
-
-    private String readFromServer() {
+    private String readFromServer(BufferedReader in) {
         String input = null;
         try {
             input = in.readLine();
         } catch (IOException e) {
-            logger.log(e.getMessage());
+            logger.error(e.getMessage());
             stopClient();
         }
-        logger.log("Read from server: " + input);
+        logger.log(READ.get() + input);
         return input;
     }
 }

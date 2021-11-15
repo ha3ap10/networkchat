@@ -42,15 +42,15 @@ public class Settings {
         }
     }
 
-    public String getPORT() {
-        return set.getAttribute(PORT);
+    public int getPort() {
+        return Integer.parseInt(set.getAttribute(PORT));
     }
 
-    public String getHOST() {
+    public String getHost() {
         return set.getAttribute(HOST);
     }
 
-    public String getLOG() {
+    public String getLog() {
             return set.getAttribute(LOG);
     }
 }
